@@ -53,6 +53,18 @@ class TestYourFunctionality(unittest.TestCase):
         state_2 = self.mech_mdp.update_current_state(state_1, action, partial_observations_2)
         self.assertEqual(state_2, expected_next_state_2)
 
+        action = 0
+        partial_observations_3 = {
+                "inbound_payments": 2,
+                "arrived_obligations": 0,
+                "observed_claims": 1,
+                "observed_expected": 0.75  # not used when ζ = 0
+        }
+        expected_next_state_3 = MDPStateExt(3, 2.0, 0.0, 2.0, 0.0, 2.0, 1.0, 1.6)
+
+        state_3 = self.mech_mdp.update_current_state(state_2, action, partial_observations_3)
+        self.assertEqual(state_3, expected_next_state_3)
+
     def test_update_current_status_alternate_unsecured(self):
         """Test case where it should be preferable to borrow unsecured credit"""
         this_mech_mdp = MechMDPSearch(self.n_players, self.n_periods, self.has_collateral, self.p_t, self.delta, self.delta_prime, self.gamma, self.phi, 0.025, self.zeta, self.seed)
@@ -76,6 +88,33 @@ class TestYourFunctionality(unittest.TestCase):
                 "observed_expected": 0.75  # not used when ζ = 0
         }
         expected_next_state_2 = MDPStateExt(2, 0.0, 0.0, 0.0, 2.0, 2.0, 2.0, 1.6)
+
+        state_2 = this_mech_mdp.update_current_state(state_1, action, partial_observations_2)
+        self.assertEqual(state_2, expected_next_state_2)
+
+    def test_update_current_status_alternate_trad(self):
+        """Test case where it should be preferable to borrow traditional credit"""
+        this_mech_mdp = MechMDPSearch(self.n_players, self.n_periods, self.has_collateral, self.p_t, self.delta, self.delta_prime, self.gamma, 0.2, self.chi, self.zeta, self.seed)
+        action = 0
+        partial_observations_1 = {
+                "inbound_payments": 0,
+                "arrived_obligations": 2,
+                "observed_claims": 1,
+                "observed_expected": 0.75  # not used when ζ = 0
+        }
+        expected_next_state_1 = MDPStateExt(1, 0.0, 0.0, 0.0, 0.0, 2.0, 1.0, 1.6)
+
+        initial_state = this_mech_mdp.initial_state()
+        state_1 = this_mech_mdp.update_current_state(initial_state, action, partial_observations_1)
+
+        action = 1
+        partial_observations_2 = {
+                "inbound_payments": 0,
+                "arrived_obligations": 2,
+                "observed_claims": 1,
+                "observed_expected": 0.75  # not used when ζ = 0
+        }
+        expected_next_state_2 = MDPStateExt(2, 0.0, 2.0, 0.0, 0.0, 2.0, 2.0, 1.6)
 
         state_2 = this_mech_mdp.update_current_state(state_1, action, partial_observations_2)
         self.assertEqual(state_2, expected_next_state_2)
