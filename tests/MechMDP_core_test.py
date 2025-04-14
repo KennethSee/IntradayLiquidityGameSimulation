@@ -28,18 +28,30 @@ class TestYourFunctionality(unittest.TestCase):
     
     def test_update_current_state(self):
         """Tests that the update_current_state function works"""
-        action = 1
-        partial_observations = {
+        action = 0
+        partial_observations_1 = {
                 "inbound_payments": 0,
                 "arrived_obligations": 2,
                 "observed_claims": 1,
                 "observed_expected": 0.75  # not used when ζ = 0
         }
-        expected_next_state = MDPStateExt(1, 0, 0, 0, 0, 2, 1, 1.6)
+        expected_next_state_1 = MDPStateExt(1, 0.0, 0.0, 0.0, 0.0, 2.0, 1.0, 1.6)
 
         initial_state = self.mech_mdp.initial_state()
-        next_state = self.mech_mdp.update_current_state(initial_state, action, partial_observations)
-        self.assertEqual(next_state, expected_next_state)
+        state_1 = self.mech_mdp.update_current_state(initial_state, action, partial_observations_1)
+        self.assertEqual(state_1, expected_next_state_1)
+
+        action = 1
+        partial_observations_2 = {
+                "inbound_payments": 0,
+                "arrived_obligations": 2,
+                "observed_claims": 1,
+                "observed_expected": 0.75  # not used when ζ = 0
+        }
+        expected_next_state_2 = MDPStateExt(2, 0.0, 0.0, 2.0, 0.0, 2.0, 2.0, 1.6)
+
+        state_2 = self.mech_mdp.update_current_state(state_1, action, partial_observations_2)
+        self.assertEqual(state_2, expected_next_state_2)
 
     # def test_your_function_type_error(self):
     #     """Test that function raises a TypeError when passed a wrong type."""

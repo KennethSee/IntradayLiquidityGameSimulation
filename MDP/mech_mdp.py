@@ -296,7 +296,7 @@ class MechMDPSearch:
         # new_balance_pre = new_balance_pre - (repay_b_claim + repay_b_trad + repay_b_unsecured)
         
         if focal_action == 1:  # PAY
-            shortfall = max(0.0, new_obligations - new_balance_pre)
+            shortfall = max(0.0, current_state.obligations - new_balance_pre)
             if shortfall > 0:
                 remaining_shortfall = shortfall
                 add_borrowed_claim = 0.0
@@ -316,10 +316,10 @@ class MechMDPSearch:
                 new_borrowed_unsecured += add_borrowed_unsecured
                 
                 new_balance = 0.0
-                new_oblig_after = 0.0
+                new_oblig_after = arrived
             else:
-                new_balance = new_balance_pre - new_obligations
-                new_oblig_after = 0.0
+                new_balance = new_balance_pre - current_state.obligations
+                new_oblig_after = arrived
             
             next_state = MDPStateExt(
                 t = current_state.t + 1,
@@ -328,7 +328,7 @@ class MechMDPSearch:
                 borrowed_claim = new_borrowed_claim,
                 borrowed_unsecured = new_borrowed_unsecured,
                 obligations = new_oblig_after,
-                claims = 0.0,
+                claims = new_claims_pre,
                 expected_inbound = new_expected
             )
             return next_state
