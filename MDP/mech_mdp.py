@@ -115,23 +115,18 @@ class MechMDPSearch:
             shortfall = max(0.0, total_oblig - current_balance)
             # Borrowing decision:
             if shortfall > 0:
-                if self.has_collateral:
-                    if self.phi < self.gamma and self.phi < self.chi:
-                        add_borrowed_claim = shortfall
-                        add_borrowed_trad = 0.0
-                        add_borrowed_unsecured = 0.0
-                    elif self.gamma < self.chi:
-                        add_borrowed_trad = shortfall
-                        add_borrowed_claim = 0.0
-                        add_borrowed_unsecured = 0.0
-                    else:
-                        add_borrowed_unsecured = shortfall
-                        add_borrowed_trad = 0.0
-                        add_borrowed_claim = 0.0
+                remaining_shortfall = shortfall
+                add_borrowed_claim = 0.0
+                add_borrowed_trad = 0.0
+                add_borrowed_unsecured = 0.0
+                if (self.phi < self.gamma or not self.has_collateral) and self.phi < self.chi:
+                    avail_claim = max(0.0, state.claims - state.borrowed_claim)
+                    add_borrowed_claim = avail_claim
+                    remaining_shortfall -= add_borrowed_claim
+                if self.has_collateral and self.gamma < self.chi:
+                    add_borrowed_trad = remaining_shortfall
                 else:
-                    add_borrowed_unsecured = shortfall
-                    add_borrowed_trad = 0.0
-                    add_borrowed_claim = 0.0
+                    add_borrowed_unsecured = remaining_shortfall
             else:
                 add_borrowed_trad = 0.0
                 add_borrowed_claim = 0.0
@@ -269,8 +264,8 @@ class MechMDPSearch:
         observed_inbound = partial_observations.get("inbound_payments", 0.0)
         observed_claims = partial_observations.get("observed_claims", 0.0)
         new_balance_pre = current_state.balance + observed_inbound
-        # Update claim balance: claims accumulate, but if inbound payments cover some claims, subtract.
-        new_claims_pre = current_state.claims + observed_claims - observed_inbound
+        # Update claim balance: claims accumulate, but if inbound payments cover some unleveraged claims, subtract.
+        new_claims_pre = current_state.claims + observed_claims - min(observed_inbound, current_state.claims - current_state.borrowed_claim)
         
         new_borrowed_trad = current_state.borrowed_trad
         new_borrowed_claim = current_state.borrowed_claim

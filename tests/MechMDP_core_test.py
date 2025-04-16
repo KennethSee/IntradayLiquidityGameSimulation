@@ -60,7 +60,7 @@ class TestYourFunctionality(unittest.TestCase):
                 "observed_claims": 1,
                 "observed_expected": 0.75  # not used when ζ = 0
         }
-        expected_next_state_3 = MDPStateExt(3, 2.0, 0.0, 2.0, 0.0, 2.0, 1.0, 1.6)
+        expected_next_state_3 = MDPStateExt(3, 2.0, 0.0, 2.0, 0.0, 2.0, 3.0, 1.6)
 
         state_3 = self.mech_mdp.update_current_state(state_2, action, partial_observations_3)
         self.assertEqual(state_3, expected_next_state_3)
@@ -119,16 +119,27 @@ class TestYourFunctionality(unittest.TestCase):
         state_2 = this_mech_mdp.update_current_state(state_1, action, partial_observations_2)
         self.assertEqual(state_2, expected_next_state_2)
 
-    # def test_your_function_type_error(self):
-    #     """Test that function raises a TypeError when passed a wrong type."""
-    #     with self.assertRaises(TypeError):
-    #         your_function("invalid input")
-    
-    # def test_class_method_behavior(self):
-    #     """Test a method from a class."""
-    #     obj = YourClass(param=5)
-    #     result = obj.method_name()
-    #     self.assertTrue(result)  # or use assertEqual/assertAlmostEqual etc.
+    def test_transition_function(self):
+        initial_state = self.mech_mdp.initial_state()
+        partial_observations = {
+                "inbound_payments": 0,
+                "arrived_obligations": 2,
+                "observed_claims": 1,
+                "observed_expected": 0.75  # not used when ζ = 0
+        }
+        next_state = self.mech_mdp.update_current_state(initial_state, 0, partial_observations)
+
+        # test if action = 1
+        new_state, _, cost = self.mech_mdp.transition_function(next_state, action=1)[0]
+        expected_new_state = MDPStateExt(2, 1.6, 1.0, 1.0, 0.0, 0.0, 1.0, 1.6)
+        self.assertEqual(new_state, expected_new_state)
+        self.assertEqual(cost, 1 * self.gamma + 1 * self.phi)
+
+        # test if action = 0
+        new_state, _, cost = self.mech_mdp.transition_function(next_state, action=0)[0]
+        expected_new_state = MDPStateExt(2, 1.6, 0.0, 0.0, 0.0, 2.0, 1.0, 1.6)
+        self.assertEqual(new_state, expected_new_state)
+        self.assertEqual(cost, 2 * (self.delta + self.delta_prime))
     
     # def tearDown(self):
     #     """Runs after each test method."""
