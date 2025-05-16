@@ -119,10 +119,11 @@ class MechMDPSearch:
                 add_borrowed_claim = 0.0
                 add_borrowed_trad = 0.0
                 add_borrowed_unsecured = 0.0
-                if (self.phi < self.gamma or not self.has_collateral) and self.phi < self.chi:
+                if (self.phi < self.gamma or not self.has_collateral) and self.phi < self.chi: # this looks wrong, check condition
                     avail_claim = max(0.0, state.claims - state.borrowed_claim)
-                    add_borrowed_claim = avail_claim
+                    add_borrowed_claim = min(avail_claim, remaining_shortfall)
                     remaining_shortfall -= add_borrowed_claim
+                    print(f'remaining shortfall: {remaining_shortfall}')
                 if self.has_collateral and self.gamma < self.chi:
                     add_borrowed_trad = remaining_shortfall
                 else:
@@ -174,7 +175,7 @@ class MechMDPSearch:
             #         updated_balance -= (repay_claim + repay_trad + repay_unsecured)
             
             # If PAY, obligations are cleared.
-            new_oblig_after = 0.0
+            new_oblig_after = 0.0 + (self.n_players - 1) * self.p_t
             
             next_state = MDPStateExt(
                 t = state.t + 1,
@@ -183,18 +184,18 @@ class MechMDPSearch:
                 borrowed_claim = new_borrowed_claim,
                 borrowed_unsecured = new_borrowed_unsecured,
                 obligations = new_oblig_after,
-                claims = state.claims,  # unchanged here
+                claims = state.claims + (self.n_players - 1) * self.p_t,  
                 expected_inbound = state.expected_inbound
             )
             return [(next_state, 1.0, immediate_cost)]
         
         else:  # DELAY
             # Under DELAY, obligations remain (accumulate).
-            new_oblig_after = total_oblig
             updated_balance = current_balance + state.expected_inbound
             # Delay cost is δ + δ′ per unit.
-            cost_delay = (self.delta + self.delta_prime) * new_oblig_after
+            cost_delay = (self.delta + self.delta_prime) * total_oblig
             immediate_cost = cost_delay
+            new_oblig_after = total_oblig + (self.n_players - 1) * self.p_t
             
             next_state = MDPStateExt(
                 t = state.t + 1,
@@ -203,7 +204,7 @@ class MechMDPSearch:
                 borrowed_claim = state.borrowed_claim,
                 borrowed_unsecured = state.borrowed_unsecured,
                 obligations = new_oblig_after,
-                claims = state.claims,
+                claims = state.claims + (self.n_players - 1) * self.p_t,
                 expected_inbound = state.expected_inbound
             )
             return [(next_state, 1.0, immediate_cost)]
@@ -235,6 +236,7 @@ class MechMDPSearch:
         best_action = None
         for a in self.actions(state):
             transitions = self.transition_function(state, a)
+            print(a, transitions)
             total_val = 0.0
             for (ns, prob, cost) in transitions:
                 immediate_reward = -cost  # cost is negative reward

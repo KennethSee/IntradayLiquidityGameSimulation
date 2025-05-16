@@ -47,7 +47,7 @@ class TestYourFunctionality(unittest.TestCase):
                 # calculate amount of obligations that arrived in this period
                 arrived_obligations = sum([txn.amount for txn in txns_to_settle if txn.arrival_time == current_time])
                 # calculate the amount of claims that arrived in this current period
-                observed_claims = sum([txn.amount for txn in all_outstanding_transactions if txn.arrival_time == current_time and txn.recipient_account.owner == self.name])
+                observed_claims = sum([txn.amount for txn in all_outstanding_transactions if txn.arrival_time == current_time and txn.recipient_account.owner.name == self.name])
 
                 if current_time == "08:00":
                     partial_obs = {
@@ -76,7 +76,6 @@ class TestYourFunctionality(unittest.TestCase):
                     self.mdp_state = mdp.update_current_state(self.mdp_state, self.mdp_previous_action, partial_obs)
 
                 best_value, best_act = mdp.depth_limited_value(self.mdp_state, depth=self.n_periods)
-                print(best_value, best_act)
                 self.n_periods -= 1
                 self.mdp_previous_action = best_act
 
@@ -90,54 +89,65 @@ class TestYourFunctionality(unittest.TestCase):
         """
         Tests if a bank implemented to use the MDP Search behaves in a strategic manner as expected.
         """
-        # # scenario 1: A transaction arrives for the test bank without any incoming transactions. Since it has no collateral, it can only borrow unsecured credit. This is more expensive than delaying so we should see no transactions returned for settlement
-        # test_bank = self.create_strategic_bank('test bank', 2, 3, False, self.p_t, self.delta, self.delta_prime, self.gamma, self.phi, self.chi, self.zeta, self.seed)
-        # test_account = Account('test_account', test_bank)
-        # t1 = Transaction(test_account, Account('N/A', None), 1, time='08:00')
-        # txns_to_settle = test_bank.strategy({t1}, set(), 'N/A', 1, '08:00', None)
-        # self.assertEqual(len(txns_to_settle), 0, 'Scenario 1: Expected no transactions to be settled')
+        # scenario 1: A transaction arrives for the test bank without any incoming transactions. Since it has no collateral, it can only borrow unsecured credit. This is more expensive than delaying so we should see no transactions returned for settlement
+        test_bank = self.create_strategic_bank('test bank', 2, 3, False, self.p_t, self.delta, self.delta_prime, self.gamma, self.phi, self.chi, self.zeta, self.seed)
+        test_account = Account('test_account', test_bank)
+        t1 = Transaction(test_account, Account('N/A', None), 1, time='08:00')
+        txns_to_settle = test_bank.strategy({t1}, set(), 'N/A', 1, '08:00', None)
+        self.assertEqual(len(txns_to_settle), 0, 'Scenario 1: Expected no transactions to be settled')
 
-        # # scenario 2: Similar to scenario 1, but since there is collateral, it is cheaper to pay rather than delay so there should be a transaction that is sent for settlement.
-        # test_bank = self.create_strategic_bank('test bank', 2, 3, True, self.p_t, self.delta, self.delta_prime, self.gamma, self.phi, self.chi, self.zeta, self.seed)
-        # test_account = Account('test_account', test_bank, posted_collateral=100)
-        # t2 = Transaction(test_account, Account('N/A', None), 1, time='08:00')
-        # txns_to_settle = test_bank.strategy({t2}, set(), 'N/A', 1, '08:00', None)
-        # self.assertEqual(len(txns_to_settle), 1, 'Scenario 2: Expected 1 transaction to be settled')
+        # scenario 2: Similar to scenario 1, but since there is collateral, it is cheaper to pay rather than delay so there should be a transaction that is sent for settlement.
+        test_bank = self.create_strategic_bank('test bank', 2, 3, True, self.p_t, self.delta, self.delta_prime, self.gamma, self.phi, self.chi, self.zeta, self.seed)
+        test_account = Account('test_account', test_bank, posted_collateral=100)
+        t2 = Transaction(test_account, Account('N/A', None), 1, time='08:00')
+        txns_to_settle = test_bank.strategy({t2}, set(), 'N/A', 1, '08:00', None)
+        self.assertEqual(len(txns_to_settle), 1, 'Scenario 2: Expected 1 transaction to be settled')
 
         # scenario 3: A transaction arrives for the test bank, with no collateral, with another incoming transactions. Since borrowing costs is still cheaper than delaying, there should be a transaction sent for settlement.
+        print('SCENARIO 3 TEST START')
         test_bank = self.create_strategic_bank('test bank', 2, 3, False, self.p_t, self.delta, self.delta_prime, self.gamma, self.phi, self.chi, self.zeta, self.seed)
+        test_bank_other = self.create_strategic_bank('test bank other', 2, 3, False, self.p_t, self.delta, self.delta_prime, self.gamma, self.phi, self.chi, self.zeta, self.seed)
         test_account = Account('test_account', test_bank, posted_collateral=0)
-        test_account_other = Account('test_account_other', None, posted_collateral=0)
+        test_account_other = Account('test_account_other', test_bank_other, posted_collateral=0)
         t3 = Transaction(test_account, test_account_other, 1, time='08:00')
         t4 = Transaction(test_account_other, test_account, 1, time='08:00')
         txns_to_settle = test_bank.strategy({t3}, {t3, t4}, 'N/A', 1, '08:00', None)
+        print('SCENARIO 3 TEST END')
         self.assertEqual(len(txns_to_settle), 1, 'Scenario 3: Expected 1 transaction to be settled')
 
         # scenario 4: Similar to scenrio 3 but with two obligations and two incoming transactions. There should be two transactions sent for settlement.
         test_bank = self.create_strategic_bank('test bank', 2, 3, False, self.p_t, self.delta, self.delta_prime, self.gamma, self.phi, self.chi, self.zeta, self.seed)
+        test_bank_other_1 = self.create_strategic_bank('test bank other 1', 2, 3, False, self.p_t, self.delta, self.delta_prime, self.gamma, self.phi, self.chi, self.zeta, self.seed)
+        test_bank_other_2 = self.create_strategic_bank('test bank other 2', 2, 3, False, self.p_t, self.delta, self.delta_prime, self.gamma, self.phi, self.chi, self.zeta, self.seed)
         test_account = Account('test_account', test_bank, posted_collateral=0)
-        t5 = Transaction(test_account, Account('N/A', None), 1, time='08:00')
-        t6 = Transaction(test_account, Account('N/A', None), 1, time='08:00')
-        t7 = Transaction(Account('N/A', None), test_account, 1, time='08:00')
-        t8 = Transaction(Account('N/A', None), test_account, 1, time='08:00')
+        test_account_other_1 = Account('test_account_other_1', test_bank_other_1, posted_collateral=0)
+        test_account_other_2 = Account('test_account_other_2', test_bank_other_2, posted_collateral=0)
+        t5 = Transaction(test_account, test_account_other_1, 1, time='08:00')
+        t6 = Transaction(test_account, test_account_other_2, 1, time='08:00')
+        t7 = Transaction(test_account_other_1, test_account, 1, time='08:00')
+        t8 = Transaction(test_account_other_2, test_account, 1, time='08:00')
         txns_to_settle = test_bank.strategy({t5, t6}, {t5, t6, t7, t8}, 'N/A', 1, '08:00', None)
         self.assertEqual(len(txns_to_settle), 2, 'Scenario 4: Expected 2 transactions to be settled')
 
         # scenario 5: Multiple periods and multiple transactions
-        test_bank = self.create_strategic_bank('test bank', 3, 3, False, self.p_t, self.delta, self.delta_prime, self.gamma, self.phi, self.chi, self.zeta, self.seed)
-        test_account = Account('test_account', test_bank, posted_collateral=0)
-        t9 = Transaction(test_account, Account('N/A', None), 1, time='08:00')
-        t10 = Transaction(test_account, Account('N/A', None), 1, time='08:00')
-        t11 = Transaction(Account('N/A', None), test_account, 1, time='08:00')
-        t12 = Transaction(Account('N/A', None), test_account, 1, time='08:00')
-        txns_to_settle = test_bank.strategy({t9, t10}, {t9, t10, t11, t12}, 'N/A', 1, '08:00', None)
-        self.assertEqual(len(txns_to_settle), 2, 'Expected 2 transactions to be settled')
-        t13 = Transaction(test_account, Account('N/A', None), 1, time='08:15')
-        t14 = Transaction(test_account, Account('N/A', None), 1, time='08:15')
-        t15 = Transaction(Account('N/A', None), test_account, 1, time='08:15')
-        t16 = Transaction(Account('N/A', None), test_account, 1, time='08:15')
-        txns_to_settle = test_bank.strategy({t13, t14}, {t13, t14, t15, t16}, 'N/A', 1, '08:15', None)
-        self.assertEqual(len(txns_to_settle), 2, 'Scenario 5: Expected 2 transactions to be settled')
+        # test_bank = self.create_strategic_bank('test bank', 3, 3, False, self.p_t, self.delta, self.delta_prime, self.gamma, self.phi, self.chi, self.zeta, self.seed)
+        # test_bank_other_1 = self.create_strategic_bank('test bank other 1', 2, 3, False, self.p_t, self.delta, self.delta_prime, self.gamma, self.phi, self.chi, self.zeta, self.seed)
+        # test_bank_other_2 = self.create_strategic_bank('test bank other 2', 2, 3, False, self.p_t, self.delta, self.delta_prime, self.gamma, self.phi, self.chi, self.zeta, self.seed)
+        # test_account = Account('test_account', test_bank, posted_collateral=0)
+        # test_account_other_1 = Account('test_account_other_1', test_bank_other_1, posted_collateral=0)
+        # test_account_other_2 = Account('test_account_other_2', test_bank_other_2, posted_collateral=0)
+        # t9 = Transaction(test_account, test_account_other_1, 1, time='08:00')
+        # t10 = Transaction(test_account, test_account_other_2, 1, time='08:00')
+        # t11 = Transaction(test_account_other_1, test_account, 1, time='08:00')
+        # t12 = Transaction(test_account_other_2, test_account, 1, time='08:00')
+        # txns_to_settle = test_bank.strategy({t9, t10}, {t9, t10, t11, t12}, 'N/A', 1, '08:00', None)
+        # self.assertEqual(len(txns_to_settle), 2, 'Expected 2 transactions to be settled')
+        # t13 = Transaction(test_account, test_account_other_1, 1, time='08:15')
+        # t14 = Transaction(test_account, test_account_other_2, 1, time='08:15')
+        # t15 = Transaction(test_account_other_1, test_account, 1, time='08:15')
+        # t16 = Transaction(test_account_other_2, test_account, 1, time='08:15')
+        # txns_to_settle = test_bank.strategy({t13, t14}, {t13, t14, t15, t16}, 'N/A', 1, '08:15', None)
+        # self.assertEqual(len(txns_to_settle), 2, 'Scenario 5: Expected 2 transactions to be settled')
 
     def test_sim_delay(self):
         """

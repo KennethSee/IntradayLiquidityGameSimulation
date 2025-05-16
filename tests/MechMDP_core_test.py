@@ -131,13 +131,13 @@ class TestYourFunctionality(unittest.TestCase):
 
         # test if action = 1
         new_state, _, cost = self.mech_mdp.transition_function(next_state, action=1)[0]
-        expected_new_state = MDPStateExt(2, 1.6, 1.0, 1.0, 0.0, 0.0, 1.0, 1.6)
+        expected_new_state = MDPStateExt(2, 1.6, 1.0, 1.0, 0.0, 0.0 + (self.n_players-1)*self.p_t, 1.0 + (self.n_players-1)*self.p_t, (self.n_players-1)*self.p_t)
         self.assertEqual(new_state, expected_new_state)
         self.assertEqual(cost, 1 * self.gamma + 1 * self.phi)
 
         # test if action = 0
         new_state, _, cost = self.mech_mdp.transition_function(next_state, action=0)[0]
-        expected_new_state = MDPStateExt(2, 1.6, 0.0, 0.0, 0.0, 2.0, 1.0, 1.6)
+        expected_new_state = MDPStateExt(2, 1.6, 0.0, 0.0, 0.0, 2.0 + (self.n_players-1)*self.p_t, 1.0 + (self.n_players-1)*self.p_t, (self.n_players-1)*self.p_t)
         self.assertEqual(new_state, expected_new_state)
         self.assertEqual(cost, 2 * (self.delta + self.delta_prime))
     
