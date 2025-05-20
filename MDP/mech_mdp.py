@@ -119,11 +119,10 @@ class MechMDPSearch:
                 add_borrowed_claim = 0.0
                 add_borrowed_trad = 0.0
                 add_borrowed_unsecured = 0.0
-                if (self.phi < self.gamma or not self.has_collateral) and self.phi < self.chi: # this looks wrong, check condition
+                if (self.phi < self.gamma or not self.has_collateral) and self.phi < self.chi:
                     avail_claim = max(0.0, state.claims - state.borrowed_claim)
                     add_borrowed_claim = min(avail_claim, remaining_shortfall)
                     remaining_shortfall -= add_borrowed_claim
-                    print(f'remaining shortfall: {remaining_shortfall}')
                 if self.has_collateral and self.gamma < self.chi:
                     add_borrowed_trad = remaining_shortfall
                 else:

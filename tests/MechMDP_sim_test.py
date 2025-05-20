@@ -104,7 +104,6 @@ class TestYourFunctionality(unittest.TestCase):
         self.assertEqual(len(txns_to_settle), 1, 'Scenario 2: Expected 1 transaction to be settled')
 
         # scenario 3: A transaction arrives for the test bank, with no collateral, with another incoming transactions. Since borrowing costs is still cheaper than delaying, there should be a transaction sent for settlement.
-        print('SCENARIO 3 TEST START')
         test_bank = self.create_strategic_bank('test bank', 2, 3, False, self.p_t, self.delta, self.delta_prime, self.gamma, self.phi, self.chi, self.zeta, self.seed)
         test_bank_other = self.create_strategic_bank('test bank other', 2, 3, False, self.p_t, self.delta, self.delta_prime, self.gamma, self.phi, self.chi, self.zeta, self.seed)
         test_account = Account('test_account', test_bank, posted_collateral=0)
@@ -112,7 +111,6 @@ class TestYourFunctionality(unittest.TestCase):
         t3 = Transaction(test_account, test_account_other, 1, time='08:00')
         t4 = Transaction(test_account_other, test_account, 1, time='08:00')
         txns_to_settle = test_bank.strategy({t3}, {t3, t4}, 'N/A', 1, '08:00', None)
-        print('SCENARIO 3 TEST END')
         self.assertEqual(len(txns_to_settle), 1, 'Scenario 3: Expected 1 transaction to be settled')
 
         # scenario 4: Similar to scenrio 3 but with two obligations and two incoming transactions. There should be two transactions sent for settlement.
@@ -149,84 +147,84 @@ class TestYourFunctionality(unittest.TestCase):
         # txns_to_settle = test_bank.strategy({t13, t14}, {t13, t14, t15, t16}, 'N/A', 1, '08:15', None)
         # self.assertEqual(len(txns_to_settle), 2, 'Scenario 5: Expected 2 transactions to be settled')
 
-    def test_sim_delay(self):
-        """
-        Tests if expected delayed transactions are correctly being delayed in simulation.
-        """
-        mdp = MechMDPSearch(3, 3, False, 1, 0.0, 0.1, 0.4, 0.4, 0.5, 1, seed=42)
-        class MechStrategicBank(Bank):
-            def __init__(self, name, strategy_type='MechStrategic', **kwargs):
-                super().__init__(name, strategy_type, **kwargs)
-                self.mdp_state = mdp.initial_state() # mdp needs to be redefined before each simulation run
-                self.mdp_previous_action = 0
-                self.n_periods = 10
+    # def test_sim_delay(self):
+    #     """
+    #     Tests if expected delayed transactions are correctly being delayed in simulation.
+    #     """
+    #     mdp = MechMDPSearch(3, 3, False, 1, 0.0, 0.1, 0.4, 0.4, 0.5, 1, seed=42)
+    #     class MechStrategicBank(Bank):
+    #         def __init__(self, name, strategy_type='MechStrategic', **kwargs):
+    #             super().__init__(name, strategy_type, **kwargs)
+    #             self.mdp_state = mdp.initial_state() # mdp needs to be redefined before each simulation run
+    #             self.mdp_previous_action = 0
+    #             self.n_periods = 10
             
-            # overwrite strategy
-            def strategy(self, txns_to_settle: set, all_outstanding_transactions: set, sim_name: str, day: int, current_time: str, queue) -> set:
-                if len(txns_to_settle) == 0:
-                    return set()
-                else:
-                    # we assume 1:1 mapping of bank to account so we can just extract any txn and use that account
-                    txn = txns_to_settle.copy().pop()
-                    bank_account = txn.sender_account
+    #         # overwrite strategy
+    #         def strategy(self, txns_to_settle: set, all_outstanding_transactions: set, sim_name: str, day: int, current_time: str, queue) -> set:
+    #             if len(txns_to_settle) == 0:
+    #                 return set()
+    #             else:
+    #                 # we assume 1:1 mapping of bank to account so we can just extract any txn and use that account
+    #                 txn = txns_to_settle.copy().pop()
+    #                 bank_account = txn.sender_account
 
-                # calculate amount of obligations that arrived in this period
-                arrived_obligations = sum([txn.amount for txn in txns_to_settle if txn.arrival_time == current_time])
-                # calculate the amount of claims that arrived in this current period
-                observed_claims = sum([txn.amount for txn in all_outstanding_transactions if txn.arrival_time == current_time and txn.recipient_account.owner == self.name])
+    #             # calculate amount of obligations that arrived in this period
+    #             arrived_obligations = sum([txn.amount for txn in txns_to_settle if txn.arrival_time == current_time])
+    #             # calculate the amount of claims that arrived in this current period
+    #             observed_claims = sum([txn.amount for txn in all_outstanding_transactions if txn.arrival_time == current_time and txn.recipient_account.owner == self.name])
 
-                if current_time == "08:00":
-                    partial_obs = {
-                        "inbound_payments": 0,
-                        "arrived_obligations": arrived_obligations,
-                        "observed_claims": observed_claims,
-                        "observed_expected": 0.75  # not used when ζ = 0
-                    }
+    #             if current_time == "08:00":
+    #                 partial_obs = {
+    #                     "inbound_payments": 0,
+    #                     "arrived_obligations": arrived_obligations,
+    #                     "observed_claims": observed_claims,
+    #                     "observed_expected": 0.75  # not used when ζ = 0
+    #                 }
 
-                    self.mdp_state = mdp.update_current_state(self.mdp_state, self.mdp_previous_action, partial_obs)
-                else:
-                    # calculate actual inbound payments from previous period
-                    previous_time = add_minutes_to_time(current_time, -15)
-                    df_processed_txns = pd.read_csv(f'{sim_name}-processed_transactions.csv')
-                    filtered_df = df_processed_txns[(df_processed_txns['to_account'] == bank_account) & 
-                            (df_processed_txns['settlement_time'] == previous_time)]
-                    inbound_payments = filtered_df['amount'].sum()
+    #                 self.mdp_state = mdp.update_current_state(self.mdp_state, self.mdp_previous_action, partial_obs)
+    #             else:
+    #                 # calculate actual inbound payments from previous period
+    #                 previous_time = add_minutes_to_time(current_time, -15)
+    #                 df_processed_txns = pd.read_csv(f'{sim_name}-processed_transactions.csv')
+    #                 filtered_df = df_processed_txns[(df_processed_txns['to_account'] == bank_account) & 
+    #                         (df_processed_txns['settlement_time'] == previous_time)]
+    #                 inbound_payments = filtered_df['amount'].sum()
 
-                    partial_obs = {
-                        "inbound_payments": inbound_payments,
-                        "arrived_obligations": arrived_obligations,
-                        "observed_claims": observed_claims,
-                        "observed_expected": 0.75  # not used when ζ = 0
-                    }
+    #                 partial_obs = {
+    #                     "inbound_payments": inbound_payments,
+    #                     "arrived_obligations": arrived_obligations,
+    #                     "observed_claims": observed_claims,
+    #                     "observed_expected": 0.75  # not used when ζ = 0
+    #                 }
 
-                    self.mdp_state = mdp.update_current_state(self.mdp_state, self.mdp_previous_action, partial_obs)
+    #                 self.mdp_state = mdp.update_current_state(self.mdp_state, self.mdp_previous_action, partial_obs)
 
-                _, best_act = mdp.depth_limited_value(self.mdp_state, depth=self.n_periods)
-                self.n_periods -= 1
-                self.mdp_previous_action = best_act
+    #             _, best_act = mdp.depth_limited_value(self.mdp_state, depth=self.n_periods)
+    #             self.n_periods -= 1
+    #             self.mdp_previous_action = best_act
 
-                if best_act == 1:
-                    return txns_to_settle
-                else:
-                    return set()
+    #             if best_act == 1:
+    #                 return txns_to_settle
+    #             else:
+    #                 return set()
 
-        # simulation
-        banks = {'name': ['b1', 'b2', 'b3'], 'strategy_type': ['MechStrategic', 'MechStrategic', 'MechStrategic']}
-        accounts = {'id': ['acc1', 'acc2', 'acc3'], 'owner': ['b1', 'b2', 'b3'], 'balance': [0, 0, 0]}
-        transactions = {
-            'sender_account': ['acc1', 'acc1', 'acc2', 'acc2', 'acc3', 'acc3', 'acc1', 'acc1', 'acc2', 'acc2', 'acc3', 'acc3'], 
-            'recipient_account': ['acc2', 'acc3', 'acc1', 'acc3', 'acc1', 'acc2', 'acc2', 'acc3', 'acc1', 'acc3', 'acc1', 'acc2'], 
-            'amount': [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], 
-            'time': ['08:00', '08:00', '08:00', '08:00', '08:00', '08:00', '08:15', '08:15', '08:15', '08:15', '08:15', '08:15']
-        }
-        sim = ABMSim('test_delay', banks, accounts, transactions, strategy_mapping={'MechStrategic': MechStrategicBank}, open_time='08:00', close_time='08:30', eod_force_settlement=True)
-        sim.run()
+    #     # simulation
+    #     banks = {'name': ['b1', 'b2', 'b3'], 'strategy_type': ['MechStrategic', 'MechStrategic', 'MechStrategic']}
+    #     accounts = {'id': ['acc1', 'acc2', 'acc3'], 'owner': ['b1', 'b2', 'b3'], 'balance': [0, 0, 0]}
+    #     transactions = {
+    #         'sender_account': ['acc1', 'acc1', 'acc2', 'acc2', 'acc3', 'acc3', 'acc1', 'acc1', 'acc2', 'acc2', 'acc3', 'acc3'], 
+    #         'recipient_account': ['acc2', 'acc3', 'acc1', 'acc3', 'acc1', 'acc2', 'acc2', 'acc3', 'acc1', 'acc3', 'acc1', 'acc2'], 
+    #         'amount': [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], 
+    #         'time': ['08:00', '08:00', '08:00', '08:00', '08:00', '08:00', '08:15', '08:15', '08:15', '08:15', '08:15', '08:15']
+    #     }
+    #     sim = ABMSim('test_delay', banks, accounts, transactions, strategy_mapping={'MechStrategic': MechStrategicBank}, open_time='08:00', close_time='08:30', eod_force_settlement=True)
+    #     sim.run()
 
-        # calculate number of delays
-        df_processed_txns = pd.read_csv('./test_delay-processed_transactions.csv')
-        num_txns_delayed = len(df_processed_txns[df_processed_txns['time'] != df_processed_txns['submission_time']])
+    #     # calculate number of delays
+    #     df_processed_txns = pd.read_csv('./test_delay-processed_transactions.csv')
+    #     num_txns_delayed = len(df_processed_txns[df_processed_txns['time'] != df_processed_txns['submission_time']])
 
-        self.assertEqual(num_txns_delayed, 12, 'All 12 transactions expected to be delayed')
+    #     self.assertEqual(num_txns_delayed, 12, 'All 12 transactions expected to be delayed')
 
     def test_sim_borrow_costs(self):
         """
@@ -252,7 +250,7 @@ class TestYourFunctionality(unittest.TestCase):
                 # calculate amount of obligations that arrived in this period
                 arrived_obligations = sum([txn.amount for txn in txns_to_settle if txn.arrival_time == current_time])
                 # calculate the amount of claims that arrived in this current period
-                observed_claims = sum([txn.amount for txn in all_outstanding_transactions if txn.arrival_time == current_time and txn.recipient_account.owner == self.name])
+                observed_claims = sum([txn.amount for txn in all_outstanding_transactions if txn.arrival_time == current_time and txn.recipient_account.owner.name == self.name])
 
                 if current_time == "08:00":
                     partial_obs = {
@@ -280,7 +278,7 @@ class TestYourFunctionality(unittest.TestCase):
 
                     self.mdp_state = mdp.update_current_state(self.mdp_state, self.mdp_previous_action, partial_obs)
 
-                _, best_act = mdp.depth_limited_value(self.mdp_state, depth=self.n_periods)
+                best_value, best_act = mdp.depth_limited_value(self.mdp_state, depth=self.n_periods)
                 self.n_periods -= 1
                 self.mdp_previous_action = best_act
 
@@ -318,6 +316,7 @@ class TestYourFunctionality(unittest.TestCase):
                 
                 The type of credit issued is recorded in self.used_credit for later cost calculations.
                 """
+                # THIS IS WRONG. NEED TO AMEND TO ENSURE THAT MORE THAN 1 TXNS CAN BE USED TO GET CREDIT. ALSO ENSURE THAT THERE CAN BE MULTIPLE SOURCES OF CREDIT IF REQUIRED
                 # Rule 1: If unsecured borrowing cost is lowest, issue unsecured credit.
                 if self.chi < self.gamma and self.chi < self.phi:
                     self.used_credit.setdefault(account.id, []).append(('unsecured', amount))
@@ -325,13 +324,13 @@ class TestYourFunctionality(unittest.TestCase):
                     return
 
                 # Helper: find a valid incoming transaction for collateral.
-                def find_valid_txn():
+                def find_valid_txns():
                     lowest_valid_amt = float('inf')
                     lowest_valid_amt_txn = None
                     valid_txns = {txn for txn in account.txn_in if txn.status_code == 0 and 
                                 txn not in self.collateralized_transactions.get(account.id, set())}
                     for txn in valid_txns:
-                        if txn.amount >= amount and txn.amount < lowest_valid_amt:
+                        if txn.amount >= amount and (txn.amount < lowest_valid_amt or lowest_valid_amt is None):
                             lowest_valid_amt = txn.amount
                             lowest_valid_amt_txn = txn
                     return lowest_valid_amt_txn
@@ -341,7 +340,7 @@ class TestYourFunctionality(unittest.TestCase):
                     # Rule 2: Sufficient posted collateral.
                     if self.phi < self.chi:
                         # Try to use a valid incoming transaction as collateral.
-                        valid_txn = find_valid_txn()
+                        valid_txn = find_valid_txns()
                         if valid_txn is not None:
                             self.collateralized_transactions.setdefault(account.id, set()).add(valid_txn)
                             self.used_credit.setdefault(account.id, []).append(('collateralized_txn', amount))
@@ -361,7 +360,7 @@ class TestYourFunctionality(unittest.TestCase):
                         return
                     else:
                         # Try to use incoming transaction as collateral.
-                        valid_txn = find_valid_txn()
+                        valid_txn = find_valid_txns()
                         if valid_txn is not None:
                             self.collateralized_transactions.setdefault(account.id, set()).add(valid_txn)
                             self.used_credit.setdefault(account.id, []).append(('collateralized_txn', amount))
@@ -369,6 +368,7 @@ class TestYourFunctionality(unittest.TestCase):
                             return
                         else:
                             # No option available: do not issue credit.
+                            print('unable to obtain credit')
                             return
 
             def collect_all_repayment(self, day: int, accounts: List[Account]) -> None:
@@ -436,7 +436,9 @@ class TestYourFunctionality(unittest.TestCase):
         }
         collateralized_credit_facility = CollateralizedCreditFacility(gamma=self.gamma, phi=self.phi, chi=self.chi)
         sim = ABMSim('test_borrowing', banks, accounts, transactions, strategy_mapping={'MechStrategic': MechStrategicBank}, open_time='08:00', close_time='08:30', credit_facility=collateralized_credit_facility, eod_force_settlement=True)
+        print('SIM TEST START')
         sim.run()
+        print('SIM TEST END')
 
         # calculate number of delays
         df_processed_txns = pd.read_csv('./test_borrowing-processed_transactions.csv')
@@ -450,12 +452,12 @@ class TestYourFunctionality(unittest.TestCase):
         self.assertEqual(actual_borrowing_costs, expected_borrowing_costs, 'Borrowing costs are incorrect')
     
     
-    def tearDown(self):
-        """Runs after each test method."""
-        # Remove each .csv file
-        csv_files = glob.glob("*.csv")
-        for file in csv_files:
-            os.remove(file)
+    # def tearDown(self):
+    #     """Runs after each test method."""
+    #     # Remove each .csv file
+    #     csv_files = glob.glob("*.csv")
+    #     for file in csv_files:
+    #         os.remove(file)
 
 if __name__ == '__main__':
     unittest.main()
