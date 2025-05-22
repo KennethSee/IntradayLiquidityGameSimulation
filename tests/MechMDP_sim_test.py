@@ -3,12 +3,14 @@ import glob
 import unittest
 import pandas as pd
 from PSSimPy import Bank, Transaction, Account
-from PSSimPy.simulator import ABMSim
+# from PSSimPy.simulator import ABMSim
 from PSSimPy.credit_facilities import AbstractCreditFacility
 from PSSimPy.utils import add_minutes_to_time
 from typing import List
+from collections import defaultdict
 
 from MDP.mech_mdp import MechMDPSearch, MDPStateExt
+from SimClasses import ABMSim
 
 class TestYourFunctionality(unittest.TestCase):
     
@@ -421,9 +423,70 @@ class TestYourFunctionality(unittest.TestCase):
                     return 0.0
 
 
-            def collect_repayment(self, account) -> None:
-                # Not implemented for now.
-                pass
+            def collect_repayment(self, account: Account) -> None:
+                """
+                Use account.balance to repay outstanding tranches in descending
+                cost order (largest of gamma, phi, chi first).
+                """
+                bal = account.balance
+                if bal <= 0:
+                    return
+
+                # 1) Build dynamic cost map
+                cost_map = {
+                    'collateralized_posted': self.gamma,
+                    'collateralized_txn':    self.phi,
+                    'unsecured':             self.chi
+                }
+                # 2) Sort credit types by descending cost
+                repay_order = sorted(cost_map, key=lambda k: cost_map[k], reverse=True)
+
+                # 3) Group existing used_credit entries by their kind
+                entries = self.used_credit.get(account.id, [])
+                by_kind = defaultdict(list)
+                for entry in entries:
+                    kind = entry[0]
+                    by_kind[kind].append(entry)
+
+                new_entries = []
+                # 4) Repay for each kind in that order
+                for kind in repay_order:
+                    for entry in by_kind.get(kind, []):
+                        if bal <= 0:
+                            # no cash left, carry over the entire tranche
+                            new_entries.append(entry)
+                            continue
+
+                        # Unpack amount and optional ref
+                        amt = entry[1]
+                        ref = entry[2] if len(entry) > 2 else None
+
+                        # Repay as much as we can
+                        repay_amt = min(amt, bal)
+                        bal -= repay_amt
+
+                        # If posted-collateral, return collateral
+                        if kind == 'collateralized_posted':
+                            account.posted_collateral += repay_amt
+
+                        # If txn-collateral, free up txn on full repayment
+                        elif kind == 'collateralized_txn' and ref is not None:
+                            if repay_amt == amt:
+                                self.collateralized_transactions[account.id].discard(ref)
+
+                        # Unsecured has no extra bookkeeping
+
+                        # If partially repaid, keep remainder for next day
+                        rem = amt - repay_amt
+                        if rem > 0:
+                            if ref is not None:
+                                new_entries.append((kind, rem, ref))
+                            else:
+                                new_entries.append((kind, rem))
+
+                # 5) Commit updates
+                account.balance = bal
+                self.used_credit[account.id] = new_entries
 
             def get_total_credit(self, account: Account) -> float:
                 """

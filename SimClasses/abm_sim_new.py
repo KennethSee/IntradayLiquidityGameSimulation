@@ -190,7 +190,7 @@ class ABMSim:
             self._update_failed_banks(day, current_time_str, period_end_time_str)
 
             # each account makes repayments where they can at the start of the day
-            for _, account in self.accounts:
+            for _, account in self.accounts.items():
                 self.credit_facility.collect_repayment(account)
 
             # settlement logic
