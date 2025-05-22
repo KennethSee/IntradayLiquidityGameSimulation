@@ -543,9 +543,8 @@ class TestYourFunctionality(unittest.TestCase):
         expected_borrowing_costs = 12 * self.phi
         df_credit_facility = pd.read_csv('./test_borrowing-credit_facility.csv')
         actual_borrowing_costs = df_credit_facility['total_fee'].sum()
-        self.assertEqual(round(actual_borrowing_costs - 6 * self.phi, 2), round(expected_borrowing_costs, 2), 'Borrowing costs are incorrect') # manually reducing the cost accrual at EOD period for now
-    
-    
+        self.assertEqual(round(actual_borrowing_costs, 2), round(expected_borrowing_costs, 2), 'Borrowing costs are incorrect')
+
     def tearDown(self):
         """Runs after each test method."""
         # Remove each .csv file
