@@ -189,6 +189,10 @@ class ABMSim:
             # check if any bank fails in this time period
             self._update_failed_banks(day, current_time_str, period_end_time_str)
 
+            # each account makes repayments where they can at the start of the day
+            for _, account in self.accounts:
+                self.credit_facility.collect_repayment(account)
+
             # settlement logic
             if self.generate_txns_flag == 1:
                 # 1a. for each account pair (exclude pairs belonging to the same bank), generate a transaction with probability p and add to outstanding transactions
