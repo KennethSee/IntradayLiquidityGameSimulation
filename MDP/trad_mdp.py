@@ -9,7 +9,6 @@ MDPStateTrad = namedtuple("MDPStateTrad", [
     "balance",         # cash balance
     "borrowed",        # outstanding borrowed amount (cost γ)
     "obligations",     # payments the focal bank must make
-    "claims",          # payments owed to the focal bank
     "expected_inbound" # aggregate expected inbound payment
 ])
 
@@ -18,97 +17,102 @@ MDPStateTrad = namedtuple("MDPStateTrad", [
 # ────────────────────────────────────────────────────────────────────
 class TradMDPSearch:
     """
-    MDP for an n‑bank intraday‑liquidity game with ONLY the traditional
-    borrowing channel (cost γ). No pledge‑based borrowing, no unsecured χ.
+    Traditional‑only MDP (one borrowing cost γ).  The timing of events,
+    borrowing, repayment, and expectation updating is *identical* to the
+    multi‑channel `MechMDPSearch` you posted—just stripped down to one β.
     """
 
+    # --------------- constructor -------------------------------
     def __init__(self,
                  n_players=40,
                  n_periods=40,
-                 p_t=0.8,           # prob. an obligation arises per opponent
-                 delta=0.20,        # per‑unit delay cost
-                 gamma=0.10,        # borrowing cost
-                 zeta=0.0,          # learning rate (0 = Rational Expectations)
+                 p_t=0.8,
+                 delta=0.2,
+                 gamma=0.1,
+                 zeta=0.0,
                  seed=42):
         random.seed(seed)
-        self.n_players   = n_players
-        self.n_periods   = n_periods
-        self.p_t         = p_t
-        self.delta       = delta
-        self.gamma       = gamma
-        self.zeta        = zeta
-        self.z_star      = 1.0        # expected settlement rate under RE
+        self.n_players = n_players
+        self.n_periods = n_periods
+        self.p_t       = p_t
+        self.delta     = delta
+        self.gamma     = gamma
+        self.zeta      = zeta
+        # dominant‑strategy belief of others (tie→pay)
+        self.z_star    = 1.0   # always 1.0 in original mech
 
-    # ───────────────────── initial state ───────────────────────────
+    # --------------- initial state ----------------------------
     def initial_state(self):
         E0 = (self.n_players - 1) * self.p_t * self.z_star
-        return MDPStateTrad(t=0,
-                            balance=0.0,
-                            borrowed=0.0,
-                            obligations=0.0,
-                            claims=0.0,
-                            expected_inbound=E0)
+        return MDPStateTrad(0, 0.0, 0.0, 0.0, E0)
 
-    # ───────────────────── transition function ─────────────────────
+    # --------------- helper: repay ----------------------------
+    def repay_outstanding_borrowings(self, s: MDPStateTrad) -> MDPStateTrad:
+        """Use cash in s.balance to retire as much of s.borrowed as possible."""
+        repay_amt = min(s.balance, s.borrowed)
+        return s._replace(balance=s.balance - repay_amt,
+                          borrowed=s.borrowed - repay_amt)
+
+    # --------------- transition function ----------------------
     def transition_function(self, state: MDPStateTrad, action: int):
         """
-        action 0 = DELAY,  1 = PAY
-        Borrowing (if needed) uses ONLY γ.  Carry cost γ·borrowed each step.
+        • obligations ω are already in the state when decision is made
+        • PAY logic mirrors your original flow (borrow, pay, inbound, repay)
+        • DELAY accumulates obligations
         """
         if state.t >= self.n_periods:
             return [(state, 1.0, 0.0)]
 
-        ω   = state.obligations
-        bal = state.balance
+        ω          = state.obligations
+        b_current  = state.balance          # cash before expected inbound
 
-        if action == 1:          # PAY
-            shortfall     = max(0.0, ω - bal)
-            new_borrowed  = state.borrowed + shortfall
-            bal_after_pay = 0.0 if shortfall > 0 else bal - ω
-        else:                    # DELAY
-            shortfall     = 0.0
-            new_borrowed  = state.borrowed      # nothing new borrowed
-            bal_after_pay = bal                 # no payment made
+        if action == 1:  # = PAY
+            shortfall = max(0.0, ω - b_current)
+            add_borrow = shortfall          # all shortfall borrowed at γ
+            new_borrowed = state.borrowed + add_borrow
 
-        # Inbound flows arrive (claims realised in expectation)
-        bal_after_in  = bal_after_pay + state.expected_inbound
+            # pay obligations
+            b_after_pay = 0.0 if shortfall > 0 else b_current - ω
 
-        # Borrowing cost this period: γ times current borrowed stock
-        carry_cost    = new_borrowed * self.gamma
+            # inbound arrives
+            b_after_in  = b_after_pay + state.expected_inbound
 
-        # Use any excess cash to repay borrowing, most expensive first
-        # (only γ exists, so repay whatever is possible)
-        repay_amt     = min(bal_after_in, new_borrowed)
-        new_borrowed -= repay_amt
-        bal_final     = bal_after_in - repay_amt
+            # immediate borrowing cost (same formula as original logic)
+            cost_borrow = self.gamma * new_borrowed if shortfall > 0 else 0.0
 
-        # Delay cost if we chose to delay
-        delay_cost = self.delta * ω if action == 0 else 0.0
-        immediate_cost = carry_cost + delay_cost
+            # obligations cleared and reset for next tick
+            ω_next = (self.n_players - 1) * self.p_t
+        else:          # = DELAY
+            add_borrow    = 0.0
+            new_borrowed  = state.borrowed
+            b_after_in    = b_current + state.expected_inbound
+            cost_borrow   = 0.0
+            ω_next        = ω + (self.n_players - 1) * self.p_t
 
-        # Update obligations & claims for next period
-        new_oblig = (ω if action == 0 else 0.0) + (self.n_players - 1) * self.p_t
-        new_claim = state.claims + (self.n_players - 1) * self.p_t
-
+        # build next‑state pre‑repayment
         next_state = MDPStateTrad(
             t               = state.t + 1,
-            balance         = bal_final,
+            balance         = b_after_in,
             borrowed        = new_borrowed,
-            obligations     = new_oblig,
-            claims          = new_claim,
-            expected_inbound= state.expected_inbound  # constant under RE
+            obligations     = ω_next,
+            expected_inbound= state.expected_inbound   # ζ = 0 → constant
         )
 
+        # immediate repayment step (same place as in MechMDP)
+        next_state = self.repay_outstanding_borrowings(next_state)
+
+        immediate_cost = cost_borrow
         return [(next_state, 1.0, immediate_cost)]
 
-    # ───────────────────── auxiliary helpers ───────────────────────
-    def actions(self, state): return [0, 1]
+    # --------------- action set -------------------------------
+    def actions(self, _): return [0, 1]
 
+    # --------------- memo key ---------------------------------
     def state_to_key(self, s):
         return (s.t, round(s.balance,4), round(s.borrowed,4),
-                round(s.obligations,4), round(s.claims,4),
-                round(s.expected_inbound,4))
+                round(s.obligations,4), round(s.expected_inbound,4))
 
+    # --------------- depth‑limited solver ---------------------
     def depth_limited_value(self, state, depth, memo=None):
         if memo is None: memo = {}
         if depth <= 0 or state.t >= self.n_periods:
@@ -118,12 +122,45 @@ class TradMDPSearch:
 
         best_val, best_act = float('-inf'), None
         for a in self.actions(state):
-            exp_val = 0.0
+            val = 0.0
             for ns, p, cost in self.transition_function(state, a):
-                r        = -cost
-                fut_val, _ = self.depth_limited_value(ns, depth-1, memo)
-                exp_val += p * (r + fut_val)
-            if exp_val > best_val:
-                best_val, best_act = exp_val, a
+                reward = -cost
+                fut, _ = self.depth_limited_value(ns, depth-1, memo)
+                val   += p * (reward + fut)
+            if val > best_val:
+                best_val, best_act = val, a
         memo[key] = (best_val, best_act)
         return memo[key]
+
+    # --------------- run‑time state updater -------------------
+    def update_current_state(self, cur: MDPStateTrad, last_action: int, obs: dict):
+        """
+        Mirrors MechMDP flow:
+          • add realised inbound
+          • add arrived obligations
+          • if last action was PAY, reset obligations to arrivals
+          • immediate repayment with any surplus cash
+          • expectations updated via ζ‑rule
+        """
+        inbound   = obs.get("inbound_payments", 0.0)
+        arrivals  = obs.get("arrived_obligations", 0)
+        obs_E     = obs.get("observed_expected", cur.expected_inbound)
+
+        b = cur.balance + inbound
+        β = cur.borrowed
+
+        # obligations update
+        if last_action == 1:    # previous period paid
+            ω = arrivals
+        else:                   # delayed: carry + new
+            ω = cur.obligations + arrivals
+
+        # repay from surplus
+        repay = min(b, β)
+        β    -= repay
+        b    -= repay
+
+        # expectation update (ζ = 0 ⇒ stays constant)
+        E_next = self.zeta * obs_E + (1 - self.zeta) * cur.expected_inbound
+
+        return MDPStateTrad(cur.t + 1, b, β, ω, E_next)
