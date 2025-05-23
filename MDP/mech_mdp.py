@@ -149,30 +149,6 @@ class MechMDPSearch:
             cost_borrow = (new_borrowed_trad * self.gamma + new_borrowed_claim * self.phi + new_borrowed_unsecured * self.chi) if shortfall > 0 else 0.0
             immediate_cost = cost_borrow
             
-            # REPAYMENT ASSUMED TO BE EOD
-            # Repayment: use any excess cash to repay borrowed funds.
-            # total_borrowed = new_borrowed_trad + new_borrowed_claim + new_borrowed_unsecured
-            # if updated_balance > 0 and total_borrowed > 0:
-            #     repay_amount = min(updated_balance, total_borrowed)
-            #     if self.gamma >= self.phi:
-            #         repay_trad = min(repay_amount, new_borrowed_trad)
-            #         new_borrowed_trad -= repay_trad
-            #         repay_amount -= repay_trad
-            #         repay_claim = min(repay_amount, new_borrowed_claim)
-            #         new_borrowed_claim -= repay_claim
-            #         repay_unsecured = min(repay_amount, new_borrowed_unsecured)
-            #         new_borrowed_unsecured -= repay_unsecured
-            #         updated_balance -= (repay_trad + repay_claim + repay_unsecured)
-            #     else:
-            #         repay_claim = min(repay_amount, new_borrowed_claim)
-            #         new_borrowed_claim -= repay_claim
-            #         repay_amount -= repay_claim
-            #         repay_trad = min(repay_amount, new_borrowed_trad)
-            #         new_borrowed_trad -= repay_trad
-            #         repay_unsecured = min(repay_amount, new_borrowed_unsecured)
-            #         new_borrowed_unsecured -= repay_unsecured
-            #         updated_balance -= (repay_claim + repay_trad + repay_unsecured)
-            
             # If PAY, obligations are cleared.
             new_oblig_after = 0.0 + (self.n_players - 1) * self.p_t
             
@@ -186,6 +162,10 @@ class MechMDPSearch:
                 claims = state.claims + (self.n_players - 1) * self.p_t,  
                 expected_inbound = state.expected_inbound
             )
+
+            # repayment
+            next_state = self.repay_outstanding_borrowings(next_state)
+
             return [(next_state, 1.0, immediate_cost)]
         
         else:  # DELAY
@@ -206,6 +186,10 @@ class MechMDPSearch:
                 claims = state.claims + (self.n_players - 1) * self.p_t,
                 expected_inbound = state.expected_inbound
             )
+
+            # repayment
+            next_state = self.repay_outstanding_borrowings(next_state)
+
             return [(next_state, 1.0, immediate_cost)]
     
     def actions(self, state):
@@ -277,20 +261,6 @@ class MechMDPSearch:
         observed_expected = partial_observations.get("observed_expected", current_state.expected_inbound)
         new_expected = self.zeta * observed_expected + (1 - self.zeta) * current_state.expected_inbound
         
-        # REPAYMENT ASSUMED TO BE EOD
-        # Repayment logic: use available cash to repay borrowed amounts.
-        # repay_from_cash = new_balance_pre
-        # repay_b_claim = min(new_borrowed_claim, repay_from_cash)
-        # new_borrowed_claim -= repay_b_claim
-        # repay_from_cash -= repay_b_claim
-        # repay_b_trad = min(new_borrowed_trad, repay_from_cash)
-        # new_borrowed_trad -= repay_b_trad
-        # repay_from_cash -= repay_b_trad
-        # repay_b_unsecured = min(new_borrowed_unsecured, repay_from_cash)
-        # new_borrowed_unsecured -= repay_b_unsecured
-        # repay_from_cash -= repay_b_unsecured
-        # new_balance_pre = new_balance_pre - (repay_b_claim + repay_b_trad + repay_b_unsecured)
-        
         if focal_action == 1:  # PAY
             shortfall = max(0.0, current_state.obligations - new_balance_pre)
             if shortfall > 0:
@@ -327,6 +297,10 @@ class MechMDPSearch:
                 claims = new_claims_pre,
                 expected_inbound = new_expected
             )
+
+            # repayment
+            next_state = self.repay_outstanding_borrowings(next_state)
+
             return next_state
         
         else:  # DELAY
@@ -340,4 +314,51 @@ class MechMDPSearch:
                 claims = new_claims_pre,
                 expected_inbound = new_expected
             )
+
+            # repayment
+            next_state = self.repay_outstanding_borrowings(next_state)
+
             return next_state
+
+    def repay_outstanding_borrowings(self, state: MDPStateExt) -> MDPStateExt:
+        """
+        Repay as much of borrowed_trad, borrowed_claim, borrowed_unsecured
+        as possible using state.balance, retiring most expensive borrowings first.
+        Returns a new MDPStateExt with updated balances and borrowed amounts.
+        """
+        bal = state.balance
+
+        # 1. Map category keys to costs
+        cost_map = {
+            'trad':       self.gamma,
+            'claim':      self.phi,
+            'unsec':      self.chi
+        }
+        # 2. Order categories by descending marginal cost
+        repay_order = sorted(cost_map, key=lambda k: cost_map[k], reverse=True)
+
+        # 3. Capture current borrowed amounts in a mutable dict
+        borrowed = {
+            'trad':  state.borrowed_trad,
+            'claim': state.borrowed_claim,
+            'unsec': state.borrowed_unsecured
+        }
+
+        # 4. Repay loop
+        for kind in repay_order:
+            if bal <= 0:
+                break
+            owed = borrowed[kind]
+            if owed <= 0:
+                continue
+            pay = min(owed, bal)
+            borrowed[kind] -= pay
+            bal           -= pay
+
+        # 5. Build and return updated state
+        return state._replace(
+            balance=bal,
+            borrowed_trad=borrowed['trad'],
+            borrowed_claim=borrowed['claim'],
+            borrowed_unsecured=borrowed['unsec']
+        )
