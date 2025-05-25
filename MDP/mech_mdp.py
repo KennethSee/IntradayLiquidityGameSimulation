@@ -219,7 +219,6 @@ class MechMDPSearch:
         best_action = None
         for a in self.actions(state):
             transitions = self.transition_function(state, a)
-            print(a, transitions)
             total_val = 0.0
             for (ns, prob, cost) in transitions:
                 immediate_reward = -cost  # cost is negative reward
