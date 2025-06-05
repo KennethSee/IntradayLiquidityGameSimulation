@@ -6,6 +6,7 @@ class TransactionPath:
 
     def __init__(self):
         self.txns_list = []
+        self.txns_by_time = {}
 
     def extract_txns_from_df(self, df):
         """
@@ -19,6 +20,7 @@ class TransactionPath:
         txns_list.sort(key=lambda x: datetime.strptime(x[0], "%H:%M").time())
         
         self.txns_list = txns_list
+        self.txns_by_time = self._group_txns_by_time(txns_list)
 
     @staticmethod
     def _group_txns_by_time(txns_list):
