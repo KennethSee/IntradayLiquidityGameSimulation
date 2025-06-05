@@ -1,9 +1,11 @@
 from PSSimPy.utils.time_utils import add_minutes_to_time
+from .transaction_path import TransactionPath
 
 class FirstBestSearch:
 
-    def __init__(self, accounts: list, delta: float, gamma: float, phi: float, chi: float, start_time: str='08:00'):
+    def __init__(self, accounts: list, delta: float, gamma: float, phi: float, chi: float, transaction_path: TransactionPath, start_time: str='08:00'):
         self.accounts = accounts # expected to be a list of tuples (id, balance, collateral_posted)
+        self.account_ids = [x[0] for x in accounts]
         self.account_states = {}
         for account in self.accounts:
             self.initialize_account_state(account)
@@ -11,6 +13,7 @@ class FirstBestSearch:
         self.gamma = gamma
         self.phi = phi
         self.chi = chi
+        self.transaction_path = transaction_path
         self.start_time = start_time
 
     def initialize_account_state(self, account: tuple):
@@ -30,6 +33,8 @@ class FirstBestSearch:
         }
         self.account_states[account[0]] = initial_state
 
+    # def 
+
     @staticmethod
     def _borrowing_choice(shortfall: int, state: dict, gamma: float, phi: float, chi: float):
         remaining_shortfall = shortfall
@@ -48,3 +53,7 @@ class FirstBestSearch:
         borrowings = {'borrowed_trad': add_borrowed_trad, 'borrowed_claim': add_borrowed_claim, 'borrowed_unsecured': add_borrowed_unsecured}
         return borrowings
 
+    @staticmethod
+    def _log_costs(state: dict, delta, gamma, phi, chi):
+        costs = state['obligations'] * delta + state['borrowed_trad'] * gamma + state['borrowed_claim'] * phi + state['borrowed_unsecured'] * chi
+        return costs

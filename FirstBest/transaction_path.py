@@ -22,6 +22,9 @@ class TransactionPath:
         self.txns_list = txns_list
         self.txns_by_time = self._group_txns_by_time(txns_list)
 
+    def retrieve_txns_by_time(self, time: str):
+        return self.txns_by_time[time]
+
     @staticmethod
     def _group_txns_by_time(txns_list):
         """

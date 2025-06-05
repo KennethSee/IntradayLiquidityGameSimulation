@@ -42,6 +42,11 @@ class TestFirstBestSearch(unittest.TestCase):
         self.assertEqual(borrowings4['borrowed_claim'], 1)
         self.assertEqual(borrowings4['borrowed_unsecured'], 1)
 
+    def test_log_costs(self):
+        state = {'balance': 0, 'borrowed_trad': 1, 'borrowed_claim': 2, 'borrowed_unsecured': 3, 'obligations': 4, 'claims': 2, 'has_collateral': True}
+        costs = FirstBestSearch._log_costs(state, delta=0.2, gamma=0.3, phi=0.2, chi=0.5)
+        self.assertEqual(costs, 3.0)
+
     def tearDown(self):
         """Runs after each test method."""
         # Remove each .csv file
