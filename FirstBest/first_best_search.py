@@ -3,18 +3,23 @@ from .transaction_path import TransactionPath
 
 class FirstBestSearch:
 
-    def __init__(self, accounts: list, delta: float, gamma: float, phi: float, chi: float, transaction_path: TransactionPath, start_time: str='08:00'):
+    def __init__(self, accounts: list, delta: float, gamma: float, phi: float, chi: float, transaction_path: TransactionPath, total_costs: int=0, start_time: str='08:00', end_time: str='10:30', account_states: dict=None):
         self.accounts = accounts # expected to be a list of tuples (id, balance, collateral_posted)
         self.account_ids = [x[0] for x in accounts]
-        self.account_states = {}
-        for account in self.accounts:
-            self.initialize_account_state(account)
+        if account_states is None:
+            self.account_states = {}
+            for account in self.accounts:
+                self.initialize_account_state(account)
+        else:
+            self.account_states = account_states
         self.delta = delta
         self.gamma = gamma
         self.phi = phi
         self.chi = chi
         self.transaction_path = transaction_path
+        self.total_costs = total_costs
         self.start_time = start_time
+        self.end_time = end_time
 
     def initialize_account_state(self, account: tuple):
         if account[2] > 0:
@@ -33,7 +38,28 @@ class FirstBestSearch:
         }
         self.account_states[account[0]] = initial_state
 
-    # def 
+    def transition_period(self, action_set: list):
+        # identify transactions that arrived in the period
+        txns = self.transaction_path.retrieve_txns_by_time(self.start_time)
+
+        # perform necessary borrowings
+        account_states = self.account_states.copy()
+        for acc in self.account_ids:
+            obligations = sum([txn[3] for txn in txns if txn[1]==acc])
+            shortfall = max(0, obligations - account_states[acc]['balance'])
+            borrowings = self._borrowing_choice(shortfall, account_states[acc], self.gamma, self.phi, self.chi)
+            account_states[acc]['borrowed_trad'] += borrowings['borrowed_trad']
+            account_states[acc]['borrowed_claim'] += borrowings['borrowed_claim']
+            account_states[acc]['borrowed_unsecured'] += borrowings['borrowed_unsecured']
+
+        # execute actions based on action set
+
+        # calculate costs for the period
+
+        # return any spare liquidity to offset borrowing
+
+
+    # def transition_period_account(self, account_state: dict, obligations,)
 
     @staticmethod
     def _borrowing_choice(shortfall: int, state: dict, gamma: float, phi: float, chi: float):
