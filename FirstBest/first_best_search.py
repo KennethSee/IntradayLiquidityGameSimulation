@@ -30,5 +30,21 @@ class FirstBestSearch:
         }
         self.account_states[account[0]] = initial_state
 
-    # def _borrowing_choice()
+    @staticmethod
+    def _borrowing_choice(shortfall: int, state: dict, gamma: float, phi: float, chi: float):
+        remaining_shortfall = shortfall
+        add_borrowed_trad = 0
+        add_borrowed_claim = 0
+        add_borrowed_unsecured = 0
+        if (phi < gamma or not state['has_collateral']) and phi < chi:
+            avail_claim = max(0.0, state['claims'] - state['borrowed_claim'])
+            add_borrowed_claim = avail_claim
+            remaining_shortfall -= add_borrowed_claim
+        if state['has_collateral'] and gamma < chi:
+            add_borrowed_trad = remaining_shortfall
+        else:
+            add_borrowed_unsecured = remaining_shortfall
+
+        borrowings = {'borrowed_trad': add_borrowed_trad, 'borrowed_claim': add_borrowed_claim, 'borrowed_unsecured': add_borrowed_unsecured}
+        return borrowings
 
