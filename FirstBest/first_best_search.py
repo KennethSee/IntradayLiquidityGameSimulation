@@ -99,6 +99,24 @@ class FirstBestSearch:
         return borrowings
 
     @staticmethod
+    def _return_excess_liquidity(state: dict, gamma: float, phi: float, chi: float):
+        # 1) Build dynamic cost map
+        cost_map = {
+            'borrowed_trad': gamma,
+            'borrowed_claim': phi,
+            'borrowed_unsecured': chi
+        }
+        # 2) Sort credit types by descending cost
+        repay_order = sorted(cost_map, key=lambda k: cost_map[k], reverse=True)
+        # 3) Decide how to repay
+        for kind in repay_order:
+            repayment_amount = min(state['balance'], state[kind])
+            state['balance'] -= repayment_amount
+            state[kind] -= repayment_amount
+
+        return state
+    
+    @staticmethod
     def _log_costs(state: dict, delta, gamma, phi, chi):
         costs = state['obligations'] * delta + state['borrowed_trad'] * gamma + state['borrowed_claim'] * phi + state['borrowed_unsecured'] * chi
         return costs

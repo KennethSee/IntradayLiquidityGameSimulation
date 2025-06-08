@@ -47,6 +47,42 @@ class TestFirstBestSearch(unittest.TestCase):
         costs = FirstBestSearch._log_costs(state, delta=0.2, gamma=0.3, phi=0.2, chi=0.5)
         self.assertEqual(costs, 3.0)
 
+    def test_return_excess_liquidity(self):
+        state = {'balance': 4, 'borrowed_trad': 1, 'borrowed_claim': 2, 'borrowed_unsecured': 3, 'obligations': 4, 'claims': 2, 'has_collateral': True}
+        new_state_1 = FirstBestSearch._return_excess_liquidity(state, gamma=0.3, phi=0.2, chi=0.5)
+        self.assertEqual(new_state_1['balance'], 0)
+        self.assertEqual(new_state_1['borrowed_trad'], 0)
+        self.assertEqual(new_state_1['borrowed_claim'], 2)
+        self.assertEqual(new_state_1['borrowed_unsecured'], 0)
+
+        state = {'balance': 4, 'borrowed_trad': 1, 'borrowed_claim': 2, 'borrowed_unsecured': 3, 'obligations': 4, 'claims': 2, 'has_collateral': True}
+        new_state_2 = FirstBestSearch._return_excess_liquidity(state, gamma=0.2, phi=0.3, chi=0.5)
+        self.assertEqual(new_state_2['balance'], 0)
+        self.assertEqual(new_state_2['borrowed_trad'], 1)
+        self.assertEqual(new_state_2['borrowed_claim'], 1)
+        self.assertEqual(new_state_2['borrowed_unsecured'], 0)
+
+        state = {'balance': 4, 'borrowed_trad': 1, 'borrowed_claim': 2, 'borrowed_unsecured': 3, 'obligations': 4, 'claims': 2, 'has_collateral': True}
+        new_state_3 = FirstBestSearch._return_excess_liquidity(state, gamma=0.3, phi=0.2, chi=0.1)
+        self.assertEqual(new_state_3['balance'], 0)
+        self.assertEqual(new_state_3['borrowed_trad'], 0)
+        self.assertEqual(new_state_3['borrowed_claim'], 0)
+        self.assertEqual(new_state_3['borrowed_unsecured'], 2)
+
+        state = {'balance': 10, 'borrowed_trad': 1, 'borrowed_claim': 2, 'borrowed_unsecured': 3, 'obligations': 4, 'claims': 2, 'has_collateral': True}
+        new_state_4 = FirstBestSearch._return_excess_liquidity(state, gamma=0.3, phi=0.2, chi=0.1)
+        self.assertEqual(new_state_4['balance'], 4)
+        self.assertEqual(new_state_4['borrowed_trad'], 0)
+        self.assertEqual(new_state_4['borrowed_claim'], 0)
+        self.assertEqual(new_state_4['borrowed_unsecured'], 0)
+
+        state = {'balance': 1, 'borrowed_trad': 1, 'borrowed_claim': 2, 'borrowed_unsecured': 3, 'obligations': 4, 'claims': 2, 'has_collateral': True}
+        new_state_5 = FirstBestSearch._return_excess_liquidity(state, gamma=0.3, phi=0.2, chi=0.1)
+        self.assertEqual(new_state_5['balance'], 0)
+        self.assertEqual(new_state_5['borrowed_trad'], 0)
+        self.assertEqual(new_state_5['borrowed_claim'], 2)
+        self.assertEqual(new_state_5['borrowed_unsecured'], 3)
+
     def tearDown(self):
         """Runs after each test method."""
         # Remove each .csv file
