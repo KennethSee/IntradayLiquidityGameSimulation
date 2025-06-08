@@ -74,9 +74,10 @@ class FirstBestSearch:
         costs = [self._log_costs(account_states[acc], self.delta, self.gamma, self.phi, self.chi) for acc in self.account_ids]
 
         # return any spare liquidity to offset borrowing
-        # TO-DO
+        for acc in self.account_ids:
+            account_states[acc] = self._return_excess_liquidity(account_states[acc], self.gamma, self.phi, self.chi)
 
-        return costs
+        return costs, account_states
 
     # def transition_period_account(self, account_state: dict, obligations,)
 
