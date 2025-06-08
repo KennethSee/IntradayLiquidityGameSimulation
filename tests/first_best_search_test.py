@@ -1,8 +1,9 @@
 import os
 import glob
 import unittest
+import numpy as np
 import pandas as pd
-from FirstBest.first_best_search import FirstBestSearch
+from FirstBest.first_best_search import FirstBestSearch, generate_action_sets
 from SimClasses.abm_sim_new import ABMSim
 
 class TestFirstBestSearch(unittest.TestCase):
@@ -12,6 +13,33 @@ class TestFirstBestSearch(unittest.TestCase):
         self.accounts = [('acc1', 0, 100), ('acc2', 0, 0), ('acc3', 0, 100)]
         self.start_time = '08:00'
 
+    def test_generate_action_sets(self):
+        expected = np.array([[0], [1]])
+        actual = generate_action_sets(1)
+        np.testing.assert_array_equal(actual, expected)
+
+        expected = np.array([
+            [0, 0],
+            [0, 1],
+            [1, 0],
+            [1, 1]
+        ])
+        actual = generate_action_sets(2)
+        np.testing.assert_array_equal(actual, expected)
+
+        expected = np.array([
+            [0, 0, 0],
+            [0, 0, 1],
+            [0, 1, 0],
+            [0, 1, 1],
+            [1, 0, 0],
+            [1, 0, 1],
+            [1, 1, 0],
+            [1, 1, 1]
+        ])
+        actual = generate_action_sets(3)
+        np.testing.assert_array_equal(actual, expected)
+    
     def test_initial_state(self):
         fbs = FirstBestSearch(self.accounts, 0.0, 0.0, 0.0, 0.0, self.start_time)
         self.assertEqual(fbs.account_states['acc1']['balance'], 0.0)

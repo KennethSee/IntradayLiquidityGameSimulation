@@ -1,5 +1,12 @@
+import numpy as np
+from itertools import product
+
 from PSSimPy.utils.time_utils import add_minutes_to_time
 from .transaction_path import TransactionPath
+
+
+def generate_action_sets(n_players: int)->list:
+    return np.array(list(product([0, 1], repeat=n_players)))
 
 class FirstBestSearch:
 
