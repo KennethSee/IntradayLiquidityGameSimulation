@@ -1,6 +1,7 @@
 import pandas as pd
 from datetime import datetime
 from collections import defaultdict
+from PSSimPy.utils.time_utils import add_minutes_to_time
 
 class TransactionPath:
 
@@ -44,3 +45,19 @@ class TransactionPath:
             time_dict[time].append(txn)
         
         return dict(time_dict)
+    
+    @staticmethod
+    def all_times(start_time: str, end_time: str) -> list:
+        """
+        Generate 15-minute intervals from start_time up to but not including end_time.
+        E.g. all_times('08:00','09:00') → ['08:00','08:15','08:30','08:45'].
+        """
+        times = []
+        current = start_time
+        while True:
+            # stop before appending if we've reached or passed end_time
+            if datetime.strptime(current, '%H:%M') >= datetime.strptime(end_time, '%H:%M'):
+                break
+            times.append(current)
+            current = add_minutes_to_time(current, 15)
+        return times
