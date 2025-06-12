@@ -42,6 +42,11 @@ class TestTransactionPath(unittest.TestCase):
         self.transaction_path.extract_txns_from_df(df)
         self.assertGreater(len(self.transaction_path.txns_list), 0)
 
+    def test_all_times(self):
+         expected_times = ['08:00', '08:15', '08:30', '08:45']
+         actual_times = TransactionPath.all_times('08:00', '09:00')
+         self.assertEqual(expected_times, actual_times)
+
     def tearDown(self):
             """Runs after each test method."""
             # clear transaction path
