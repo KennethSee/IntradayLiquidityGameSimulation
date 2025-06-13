@@ -1,4 +1,5 @@
 import numpy as np
+from numba import njit, prange
 import copy
 from itertools import product
 
@@ -198,7 +199,6 @@ class FirstBestSearch:
             'borrowed_claim': claim_used,
             'borrowed_unsecured': unsec_used
         }
-
 
     @staticmethod
     def _return_excess_liquidity(state: dict, gamma: float, phi: float, chi: float):
